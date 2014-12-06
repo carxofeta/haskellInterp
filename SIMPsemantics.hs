@@ -4,63 +4,63 @@ import SIMPexamples
 
 type State = String -> Int
 
-type Conf a b = (a,b)
+type Conf a b c = (a,b,c)
 
 -- evalArith :: Conf ArithSIMP State -> Int
-evalArith (C n,state) = n
-evalArith (V x,state) = state x
-evalArith (a :+ a',state) = (evalArith (a,state)) + (evalArith (a',state))
-evalArith (a :- a',state) = (evalArith (a,state)) - (evalArith (a',state))
-evalArith (a :* a',state) = (evalArith (a,state)) * (evalArith (a',state))
+evalArith (C n,state,cont) = n
+evalArith (V x,state,cont) = state x
+evalArith (a :+ a',state,cont) = (evalArith (a,state,cont)) + (evalArith (a',state,cont))
+evalArith (a :- a',state,cont) = (evalArith (a,state,cont)) - (evalArith (a',state,cont))
+evalArith (a :* a',state,cont) = (evalArith (a,state,cont)) * (evalArith (a',state,cont))
 
 -- evalBool :: Conf BoolSIMP State -> Bool
-evalBool (B b,state) = b
-evalBool (a :== a',state) = (evalArith (a,state)) == (evalArith (a',state))
-evalBool (a :<= a',state) = (evalArith (a,state)) <= (evalArith (a',state))
-evalBool (Not b,state) = not (evalBool (b,state))
-evalBool (b :\/ b',state) = (evalBool (b,state)) || (evalBool (b',state))
+evalBool (B b,state,cont) = b
+evalBool (a :== a',state,cont) = (evalArith (a,state,cont)) == (evalArith (a',state,cont))
+evalBool (a :<= a',state,cont) = (evalArith (a,state,cont)) <= (evalArith (a',state,cont))
+evalBool (Not b,state,cont) = not (evalBool (b,state,cont))
+evalBool (b :\/ b',state,cont) = (evalBool (b,state,cont)) || (evalBool (b',state,cont))
 
 -- sos_small_step :: Conf StatementSIMP State -> [Conf StatementSIMP State]
-sos_small_step (Skip,state) = [(Skip,state)]
-sos_small_step c@(Skip :# s',state) = c:sos_small_step (s',state)
-sos_small_step c@(s :# s',state) = c:sos_small_step (s'' :# s',state')
-  where (s'',state') = last (sos_small_step (s,state))
+sos_small_step (Skip,state,cont) = [(Skip,state,cont)]
+sos_small_step c@(Skip :# s',state,cont) = c:sos_small_step (s',state,cont)
+sos_small_step c@(s :# s',state,cont) = c:sos_small_step (s'' :# s',state',cont')
+  where (s'',state',cont') = last (sos_small_step (s,state,cont))
 
-sos_small_step c@(x := a, state) = c:[(Skip,state')]
-  where state' y = if x == y then (evalArith (a,state)) else (state y)
+sos_small_step c@(x := a, state,cont) = c:[(Skip,state',cont)]
+  where state' y = if x == y then (evalArith (a,state,cont)) else (state y)
 
-sos_small_step c@(If b s s',state) 
-  | evalBool (b,state) = c:sos_small_step (s,state)
-  | otherwise = c:sos_small_step (s',state)
+sos_small_step c@(If b s s',state,cont) 
+  | evalBool (b,state,cont) = c:sos_small_step (s,state,cont)
+  | otherwise = c:sos_small_step (s',state,cont)
 
-sos_small_step c@(While b s,state) 
-  | evalBool (b,state)  = c:sos_small_step (s:#(While b s),state)
-  | otherwise = c:sos_small_step (Skip,state)
+sos_small_step c@(While b s,state,cont) 
+  | evalBool (b,state,cont)  = c:sos_small_step (s:#(While b s),state,cont)
+  | otherwise = c:sos_small_step (Skip,state,cont)
 
 -- compute_sos_small_step :: StatementSIMP -> [Conf StatementSIMP State]
 compute_sos_small_step p = sos_small_step (p,\_->0) -- All variables initialized to 0.
 
-showState vars state = [x ++ " -> " ++ show (state x) ++"\n " | x <- vars]
+showState vars state cont = [x ++ " -> " ++ show (state x) ++ ", " ++ cont ++ "\n " | x <- vars]
 
-see_sos_small_step p = showState (var p) state
-   where   (_,state) = last (sos_small_step (p,\_->0)) -- All variables initialized to 0.
+see_sos_small_step p = showState (var p) state cont
+   where   (_,state,cont) = last (sos_small_step (p,\_->0)) -- All variables initialized to 0.
 
 
 
 -- sos_big_step :: Conf StatementSIMP State -> State
-sos_big_step (Skip,state) = state
+sos_big_step (Skip,state,cont) = state
 
-sos_big_step c@(s :# s',state) = sos_big_step (s',sos_big_step (s,state))
+sos_big_step c@(s :# s',state,cont) = sos_big_step (s',sos_big_step (s,state,cont),cont)
 
-sos_big_step c@(x := a, state) = state'
+sos_big_step c@(x := a, state,cont) = state'
   where state' y = if x == y then (evalArith (a,state)) else (state y)
 
-sos_big_step c@(If b s s',state) 
-  | evalBool (b,state) = sos_big_step (s,state)
-  | otherwise = sos_big_step (s',state)
+sos_big_step c@(If b s s',state,cont) 
+  | evalBool (b,state,cont) = sos_big_step (s,state,cont)
+  | otherwise = sos_big_step (s',state,cont)
 
-sos_big_step c@(While b s,state) 
-  | evalBool (b,state)  = sos_big_step (While b s,sos_big_step (s,state))
+sos_big_step c@(While b s,state,cont) 
+  | evalBool (b,state,cont)  = sos_big_step (While b s,sos_big_step (s,state,cont))
   | otherwise = state
 
 compute_sos_big_step p = sos_big_step (p,\_->0) -- All variables initialized to 0.

@@ -13,6 +13,7 @@ import Data.List
 
 type Identifier = String
 type Variable = Identifier
+type Counter = Integer
 
 class SyntacticObject a  where
   var :: a -> [Variable]  -- Returns the list of variables in a syntactic object
