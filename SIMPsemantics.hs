@@ -26,7 +26,7 @@ sos_small_step c@(Skip :# s',state,cont) = c:sos_small_step (s',state,cont)
 sos_small_step c@(s :# s',state,cont) = c:sos_small_step (s'' :# s',state',cont')
   where (s'',state',cont') = last (sos_small_step (s,state,cont))
 
-sos_small_step c@(x := a, state,cont) = c:[(Skip,state',cont)]
+sos_small_step c@(x := a, state, cont) = c:[(Skip,state',cont)]
   where state' y = if x == y then (evalArith (a,state,cont)) else (state y)
 
 sos_small_step c@(If b s s',state,cont) 
@@ -38,12 +38,12 @@ sos_small_step c@(While b s,state,cont)
   | otherwise = c:sos_small_step (Skip,state,cont)
 
 -- compute_sos_small_step :: StatementSIMP -> [Conf StatementSIMP State]
-compute_sos_small_step p = sos_small_step (p,\_->0) -- All variables initialized to 0.
+compute_sos_small_step p cont= sos_small_step (p,cont,\_->0) -- All variables initialized to 0.
 
 showState vars state cont = [x ++ " -> " ++ show (state x) ++ ", " ++ cont ++ "\n " | x <- vars]
 
-see_sos_small_step p = showState (var p) state cont
-   where   (_,state,cont) = last (sos_small_step (p,\_->0)) -- All variables initialized to 0.
+see_sos_small_step p = showState (var p) state
+   where   (_,state,cont) = last (sos_small_step (p,cont,\_->0)) -- All variables initialized to 0.
 
 
 
@@ -53,19 +53,19 @@ sos_big_step (Skip,state,cont) = state
 sos_big_step c@(s :# s',state,cont) = sos_big_step (s',sos_big_step (s,state,cont),cont)
 
 sos_big_step c@(x := a, state,cont) = state'
-  where state' y = if x == y then (evalArith (a,state)) else (state y)
+  where state' y = if x == y then (evalArith (a,state,cont)) else (state y)
 
 sos_big_step c@(If b s s',state,cont) 
   | evalBool (b,state,cont) = sos_big_step (s,state,cont)
   | otherwise = sos_big_step (s',state,cont)
 
 sos_big_step c@(While b s,state,cont) 
-  | evalBool (b,state,cont)  = sos_big_step (While b s,sos_big_step (s,state,cont))
+  | evalBool (b,state,cont)  = sos_big_step (While b s,sos_big_step (s,state,cont),cont)
   | otherwise = state
 
-compute_sos_big_step p = sos_big_step (p,\_->0) -- All variables initialized to 0.
+compute_sos_big_step p cont = sos_big_step (p,cont,\_->0) -- All variables initialized to 0.
 
-see_sos_big_step p = showState (var p) (compute_sos_big_step p)
+--see_sos_big_step p = showState (var p) (compute_sos_big_step p)
 
 --instace Show(State) where
 --show (\x -> v) =  x++" -> "++ show v
